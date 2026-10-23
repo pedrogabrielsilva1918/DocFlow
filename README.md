@@ -10,6 +10,7 @@ Sistema web para cadastro, envio e análise de documentos, com interface em port
 - Tipos de solicitação editáveis pelo administrador, com documentos obrigatórios.
 - Vários anexos em um protocolo: PDF, JPG ou PNG, até 10 MB por arquivo e 30 MB por solicitação.
 - Aprovação e recusa com observações, filtros e download dos anexos.
+- Relatórios administrativos por período, tipo e status, com exportação CSV para Excel.
 - Correção e reenvio de pedidos recusados com o mesmo protocolo, versões dos arquivos e histórico das análises.
 - Isolamento de documentos por usuário; administração definida por `ADMIN_EMAIL` no servidor.
 - Botão para preparar aviso de resultado no aplicativo de e-mail. O administrador revisa e envia; não há envio automático.
@@ -119,3 +120,11 @@ Pedidos anteriores à atualização preservam a última situação conhecida com
 Após atualizar o código, reinicie `pnpm dev`, abra a porta 5173 e clique em **Trocar conta de teste** no menu. Se estiver desconectado, use **Escolher conta de teste**. O seletor aparece apenas em `pnpm dev`, inclusive no Codespaces.
 
 Para testar a administração, mantenha `ADMIN_EMAIL=seedy@sites.test` no arquivo local `.dev.vars`. A conta antiga de desenvolvimento continua com o mesmo ID para preservar seus envios. Complete o cadastro separadamente na primeira entrada de cada conta. Não é necessário aplicar uma nova migração para o seletor de contas.
+
+## Relatórios e exportação
+
+A conta administradora tem acesso ao menu **Relatórios**. Os filtros por período consideram a data do envio original no fuso `America/Sao_Paulo`; o status e a versão correspondem à situação atual do pedido. Combine período, tipo, status e busca por nome, e-mail, título ou protocolo. Use **Atualizar dados** para recarregar os resultados.
+
+**Exportar CSV** baixa uma linha por solicitação filtrada, com identificador, título, tipo, solicitante, e-mail, status, versão e datas. O arquivo usa UTF-8 com BOM, separador ponto e vírgula e proteção contra fórmulas em campos de texto. No Excel, use **Dados → De Texto/CSV** se a abertura direta não separar as colunas automaticamente.
+
+O servidor verifica a permissão de administrador em toda exportação. Usuários solicitantes não conseguem exportar o relatório administrativo, mesmo acessando a URL diretamente. Anexos e mensagens do histórico não são incluídos no CSV. Este recurso não exige nova migração do banco.

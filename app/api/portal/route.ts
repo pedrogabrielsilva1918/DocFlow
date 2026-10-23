@@ -1,6 +1,7 @@
 import {env} from 'cloudflare:workers';
 import {getChatGPTUser} from '../../chatgpt-auth';
 import {mergeRequestTypes,validateType,validateFiles,type RequestType} from '../../../lib/request-types';
+import {reportFilters,filterReport,reportCsv,type ReportRow} from '../../../lib/reports';
 import {isAllowedOrigin} from '../../../lib/request-origin';
 declare const __DOCFLOW_DEVELOPMENT_ORIGIN__:string;
 const db=()=>env.DB!;
@@ -15,6 +16,13 @@ async function types():Promise<RequestType[]>{
 }
 export async function GET(req:Request){try{
  const {u,admin}=await context();const url=new URL(req.url);const file=url.searchParams.get('file');
+ if(url.searchParams.has('report')){
+  if(!admin)return Response.json({error:'Acesso restrito'},{status:403});
+  if(url.searchParams.get('report')!=='csv')return Response.json({error:'Formato de relatório inválido.'},{status:400});
+  let filters;try{filters=reportFilters(url.searchParams)}catch(e){return Response.json({error:(e as Error).message},{status:400})}
+  const rows=await db().prepare('SELECT d.id,d.title,d.category,d.status,d.revision,d.created,d.updated,p.name,p.email FROM documents d LEFT JOIN profiles p ON d.owner=p.id ORDER BY d.created DESC').all<ReportRow>();
+  return new Response(reportCsv(filterReport(rows.results,filters)),{headers:{'Content-Type':'text/csv; charset=utf-8','Content-Disposition':'attachment; filename="docflow-relatorio.csv"','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
+ }
  if(file){
   const attachment=await db().prepare('SELECT a.*,d.owner FROM attachments a JOIN documents d ON a.document_id=d.id WHERE a.id=?').bind(file).first<any>();
   const d=attachment||await db().prepare('SELECT * FROM documents WHERE id=?').bind(file).first<any>();

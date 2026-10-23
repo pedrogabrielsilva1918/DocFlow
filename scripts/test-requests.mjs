@@ -11,9 +11,10 @@ function statement(sql,args){return {async first(){return database.prepare(sql).
 const bucket=new Map();let identity=null;
 globalThis.__portalTest={env:{DB:db,ADMIN_EMAIL:'owner@example.test',BUCKET:{async put(k,v){bucket.set(k,v)},async get(k){return bucket.has(k)?{body:bucket.get(k)}:null},async delete(k){bucket.delete(k)}}},getUser:async()=>identity};
 const compile=s=>ts.transpileModule(s,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
+writeFileSync(dir+'/reports.mjs',compile(readFileSync('lib/reports.ts','utf8')));
 writeFileSync(dir+'/request-origin.mjs',compile(readFileSync('lib/request-origin.ts','utf8')));
 writeFileSync(dir+'/request-types.mjs',compile(readFileSync('lib/request-types.ts','utf8')));
-let source=readFileSync('app/api/portal/route.ts','utf8').replace("import {env} from 'cloudflare:workers';","const env=globalThis.__portalTest.env;").replace("import {getChatGPTUser} from '../../chatgpt-auth';","const getChatGPTUser=globalThis.__portalTest.getUser;").replace("'../../../lib/request-types'","'./request-types.mjs'").replace("'../../../lib/request-origin'","'./request-origin.mjs'");
+let source=readFileSync('app/api/portal/route.ts','utf8').replace("import {env} from 'cloudflare:workers';","const env=globalThis.__portalTest.env;").replace("import {getChatGPTUser} from '../../chatgpt-auth';","const getChatGPTUser=globalThis.__portalTest.getUser;").replace("'../../../lib/request-types'","'./request-types.mjs'").replace("'../../../lib/request-origin'","'./request-origin.mjs'").replace("'../../../lib/reports'","'./reports.mjs'");
 writeFileSync(dir+'/route.mjs',compile(source));
 const {GET,POST}=await import(pathToFileURL(process.cwd()+'/'+dir+'/route.mjs'));
 const {DEFAULT_TYPES,validateType,mergeRequestTypes}=await import(pathToFileURL(process.cwd()+'/'+dir+'/request-types.mjs'));
@@ -85,5 +86,11 @@ identity=user('alice');assert.equal((await post({action:'resubmit',id:'legacy',t
 const legacy=(await (await get()).json()).documents.find(d=>d.id==='legacy');assert.equal(legacy.revision,2);assert.ok(legacy.history.some(h=>h.reason==='Arquivo incorreto'));assert.equal((await get('?file=legacy')).status,200);
 console.log('✓ Legacy requests also support revision and retain original downloads');
 
+identity=user('alice');assert.equal((await get('?report=csv')).status,403);
+identity=user('owner');let exported=await get('?report=csv&status=Aprovado');assert.equal(exported.status,200);assert.ok(exported.headers.get('Content-Disposition').includes('docflow-relatorio.csv'));assert.equal(exported.headers.get('Cache-Control'),'private, no-store');const csv=await exported.text();assert.ok(csv.includes('Cadastro corrigido'));assert.ok(!csv.includes('Legado corrigido'));
+assert.equal((await get('?report=pdf')).status,400);assert.equal((await get('?report=csv&from=2026-05-30&to=2026-01-01')).status,400);assert.equal((await get('?report=csv&status=Qualquer')).status,400);
+const emptyCsv=await (await get('?report=csv&q=impossivel-na-base-1234')).text();assert.equal(emptyCsv.trim().split('\r\n').length,1);
+identity=null;assert.equal((await get('?report=csv')).status,401);
+console.log('✓ CSV export restricted to admin, filters validated and applied, empty results handled');
 identity=null;assert.equal((await get('?file='+doc.id)).status,401);
 database.close();rmSync(dir,{recursive:true,force:true});console.log('All integration checks passed (local SQLite and in-memory file storage).');
