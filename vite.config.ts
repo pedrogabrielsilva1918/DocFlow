@@ -46,7 +46,7 @@ export default defineConfig(async ({ command }) => {
   const { cloudflare } = await import("@cloudflare/vite-plugin");
 
   return {
-    define: { __DOCFLOW_DEVELOPMENT_ORIGIN__: JSON.stringify(developmentOrigin) },
+    define: { __DOCFLOW_DEVELOPMENT_ORIGIN__: JSON.stringify(developmentOrigin), __DOCFLOW_TEST_ACCOUNTS__: JSON.stringify(command === "serve" && !managedLinux) },
     server: {
       ...(managedLinux
         ? { host: "0.0.0.0", allowedHosts: ["terminal.local"] }

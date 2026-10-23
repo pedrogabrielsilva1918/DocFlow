@@ -15,17 +15,23 @@ sites({developmentOrigin:origin}).configureServer({config:{server:{},logger:{inf
 function invoke(path,headers={},remote='10.0.0.2'){
  const request={method:'GET',url:path,headers:{host,...headers},rawHeaders:[],socket:{remoteAddress:remote}};
  request.rawHeaders=Object.entries(request.headers).flatMap(([k,v])=>[k,v]);
- const response={statusCode:200,headers:{},setHeader(k,v){this.headers[k]=v},end(){this.ended=true}};
+ const response={statusCode:200,headers:{},setHeader(k,v){this.headers[k]=v},end(body){this.ended=true;this.body=body}};
  let next=false;middleware(request,response,()=>{next=true});return {request,response,next};
 }
-let r=invoke('/signin-with-chatgpt?return_to=%2F');assert.equal(r.response.statusCode,302);assert.ok(r.response.headers['Set-Cookie'].includes('Secure'));assert.equal(r.response.headers.Location,'/');
+let picker=invoke('/signin-with-chatgpt');assert.equal(picker.response.statusCode,200);assert.ok(picker.response.body.includes('Administrador de teste'));assert.ok(picker.response.body.includes('Solicitante de teste'));assert.equal(picker.response.headers['Set-Cookie'],undefined);
+let r=invoke('/signin-with-chatgpt?account=admin&return_to=%2F');assert.equal(r.response.statusCode,302);assert.ok(r.response.headers['Set-Cookie'].includes('Secure'));assert.equal(r.response.headers.Location,'/');
+r=invoke('/signin-with-chatgpt?account=applicant');assert.equal(r.response.statusCode,302);assert.ok(r.response.headers['Set-Cookie'].startsWith('__sites_local_auth=applicant;'));
+r=invoke('/api/portal',{cookie:'__sites_local_auth=applicant','oai-authenticated-user-email':'seedy@sites.test'});assert.equal(r.request.headers['oai-authenticated-user-id'],'local_applicant');assert.equal(r.request.headers['oai-authenticated-user-email'],'solicitante@sites.test');
+r=invoke('/signin-with-chatgpt?account=unknown');assert.equal(r.response.statusCode,400);
+r=invoke('/api/portal',{cookie:'__sites_local_auth=1; __sites_local_auth=applicant'});assert.equal(r.request.headers['oai-authenticated-user-id'],undefined);
+r=invoke('/signout-with-chatgpt');assert.equal(r.response.statusCode,302);assert.ok(r.response.headers['Set-Cookie'].includes('Max-Age=0'));
 r=invoke('/api/portal',{cookie:'__sites_local_auth=1','oai-authenticated-user-email':'forged@example.test'});assert.ok(r.next);assert.equal(r.request.headers['oai-authenticated-user-email'],'seedy@sites.test');
-r=invoke('/signin-with-chatgpt',{origin:'https://attacker.example'});assert.equal(r.response.statusCode,403);
-r=invoke('/signin-with-chatgpt',{host:'another-5173.app.github.dev'});assert.equal(r.response.statusCode,403);
-r=invoke('/signin-with-chatgpt',{host:'localhost:5173','x-forwarded-host':host,origin});assert.equal(r.response.statusCode,302);
-r=invoke('/signin-with-chatgpt',{host:'localhost:5173','x-forwarded-host':'wrong.example'});assert.equal(r.response.statusCode,403);
-r=invoke('/signin-with-chatgpt',{host:'localhost:5173'},'127.0.0.1');assert.equal(r.response.statusCode,302);assert.ok(!r.response.headers['Set-Cookie'].includes('Secure'));
-r=invoke('/signin-with-chatgpt?return_to=https%3A%2F%2Fattacker.example');assert.equal(r.response.headers.Location,'/');
+r=invoke('/signin-with-chatgpt?account=admin',{origin:'https://attacker.example'});assert.equal(r.response.statusCode,403);
+r=invoke('/signin-with-chatgpt?account=admin',{host:'another-5173.app.github.dev'});assert.equal(r.response.statusCode,403);
+r=invoke('/signin-with-chatgpt?account=admin',{host:'localhost:5173','x-forwarded-host':host,origin});assert.equal(r.response.statusCode,302);
+r=invoke('/signin-with-chatgpt?account=admin',{host:'localhost:5173','x-forwarded-host':'wrong.example'});assert.equal(r.response.statusCode,403);
+r=invoke('/signin-with-chatgpt?account=admin',{host:'localhost:5173'},'127.0.0.1');assert.equal(r.response.statusCode,302);assert.ok(!r.response.headers['Set-Cookie'].includes('Secure'));
+r=invoke('/signin-with-chatgpt?account=admin&return_to=https%3A%2F%2Fattacker.example');assert.equal(r.response.headers.Location,'/');
 let called=false;sites({mockAuth:false,developmentOrigin:origin}).configureServer({middlewares:{use(){called=true}}});assert.equal(called,false);
 const request=(url,value)=>new Request(url,{method:'POST',headers:{origin:value}});
 assert.ok(isAllowedOrigin(request('http://'+host+'/api/portal',origin),origin));
@@ -33,4 +39,4 @@ assert.ok(isAllowedOrigin(request('http://localhost:5173/api/portal',origin),ori
 assert.ok(!isAllowedOrigin(request('http://'+host+'/api/portal',origin)));
 assert.ok(!isAllowedOrigin(request('https://production.example/api/portal',origin),origin));
 assert.ok(!isAllowedOrigin(request('http://'+host+'/api/portal','https://attacker.example'),origin));
-console.log('✓ Codespaces host, forwarded origin, sign-in cookie, identity, CSRF and production isolation');
+console.log('✓ Two test accounts, picker, switching, legacy cookie, identity isolation, sign-out, CSRF and production isolation');

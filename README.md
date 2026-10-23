@@ -39,7 +39,7 @@ node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1
 pnpm dev
 ```
 
-Abra `http://localhost:5173`. Se aparecer o login, clique em **Entrar com ChatGPT**: o ambiente local usa a identidade de teste `seedy@sites.test`. O arquivo `.dev.vars.example` usa esse mesmo e-mail para permitir testar a administração. Essa simulação funciona em desenvolvimento em loopback e no endereço exato do Codespace configurado; não é a autenticação de produção.
+Abra `http://localhost:5173`. Se aparecer o login, clique em **Entrar com ChatGPT**: escolha **Administrador de teste** (`seedy@sites.test`) ou **Solicitante de teste** (`solicitante@sites.test`). O arquivo `.dev.vars.example` usa esse mesmo e-mail para permitir testar a administração. Essa simulação funciona em desenvolvimento em loopback e no endereço exato do Codespace configurado; não é a autenticação de produção.
 
 Não reaplique os arquivos SQL sobre um banco já inicializado. Os dados locais ficam em `.wrangler/`, separados dos dados publicados. Novas mudanças de schema devem gerar uma nova migração com `pnpm db:generate`.
 
@@ -92,7 +92,7 @@ pnpm dev
 
 Abra **PORTS → 5173 → Abrir no navegador** e mantenha a visibilidade **Private**. O servidor reconhece o endereço do Codespace a partir de `CODESPACE_NAME` e `GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN`, aceita apenas esse host e abre a interface na rede do contêiner automaticamente.
 
-Nesse ambiente, **Entrar com ChatGPT** usa uma conta de teste compartilhada (`seedy@sites.test`), sem pedir senha ou conectar uma conta real. Complete **Meu cadastro** para experimentar o fluxo. Use arquivos fictícios; o isolamento de usuários reais deve ser testado no site publicado. O mock não é incluído na autenticação de produção.
+Nesse ambiente, **Escolher conta de teste** abre a seleção de administrador (`seedy@sites.test`) ou solicitante (`solicitante@sites.test`), sem pedir senha ou conectar uma conta real. Cada conta tem um ID próprio e seus documentos. Use **Trocar conta de teste** no menu para alternar. Complete **Meu cadastro** para experimentar o fluxo. Use arquivos fictícios; o solicitante de teste vê apenas os próprios documentos, enquanto o administrador analisa os pedidos de todas as contas. As abas do mesmo navegador compartilham a conta selecionada; use uma janela anônima ou outro perfil para manter as duas abertas simultaneamente. O mock não é incluído na autenticação de produção.
 
 Não execute novamente as migrações que já foram aplicadas. Para atualizar uma instalação anterior ao recurso de reenvio, siga a seção abaixo. Ao reiniciar o Codespace, use apenas `pnpm dev`. Não use `pnpm start` para essa simulação, pois ele serve o build sem o middleware de login de desenvolvimento.
 
@@ -113,3 +113,9 @@ Esse comando adiciona o histórico e os controles de versão sem apagar os pedid
 Para testar, recuse uma solicitação com uma observação. O próprio solicitante abre os detalhes, escolhe **Corrigir e reenviar**, anexa novamente todos os documentos exigidos e confirma o envio. O status volta a **Em análise** e o protocolo permanece igual. O administrador abre o histórico para consultar decisões e baixar arquivos de versões anteriores.
 
 Pedidos anteriores à atualização preservam a última situação conhecida como ponto inicial do histórico; decisões antigas que já haviam sido sobrescritas não podem ser reconstruídas. Novas decisões e reenvios passam a ser registrados.
+
+### Alternar contas no desenvolvimento
+
+Após atualizar o código, reinicie `pnpm dev`, abra a porta 5173 e clique em **Trocar conta de teste** no menu. Se estiver desconectado, use **Escolher conta de teste**. O seletor aparece apenas em `pnpm dev`, inclusive no Codespaces.
+
+Para testar a administração, mantenha `ADMIN_EMAIL=seedy@sites.test` no arquivo local `.dev.vars`. A conta antiga de desenvolvimento continua com o mesmo ID para preservar seus envios. Complete o cadastro separadamente na primeira entrada de cada conta. Não é necessário aplicar uma nova migração para o seletor de contas.
