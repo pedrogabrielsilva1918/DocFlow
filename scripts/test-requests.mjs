@@ -19,7 +19,7 @@ const {GET,POST}=await import(pathToFileURL(process.cwd()+'/'+dir+'/route.mjs'))
 const {DEFAULT_TYPES,validateType,mergeRequestTypes}=await import(pathToFileURL(process.cwd()+'/'+dir+'/request-types.mjs'));
 const origin='https://portal.test';const get=(query='')=>GET(new Request(origin+'/api/portal'+query));
 function form(values){const f=new FormData();for(const [k,v]of Object.entries(values))f.set(k,v);return f}
-async function post(values){return POST(new Request(origin+'/api/portal',{method:'POST',headers:{origin},body:form(values)}))}
+async function post(values){if(['review','resubmit'].includes(values.action)&&!('version' in values)){values={...values,version:String(database.prepare('SELECT version FROM documents WHERE id=?').get(values.id)?.version||1)}}return POST(new Request(origin+'/api/portal',{method:'POST',headers:{origin},body:form(values)}))}
 const user=id=>({userId:id,email:id==='owner'?'owner@example.test':id+'@example.test',fullName:id,displayName:id});
 const pdf=()=>new File(['%PDF-1.4\nSample'], 'test.pdf',{type:'application/pdf'});
 const previous=[{...DEFAULT_TYPES[0],name:'Envio personalizado',active:false,requirements:['Arquivo personalizado']}];
@@ -52,8 +52,38 @@ const admin=await (await get()).json();assert.equal(admin.documents[0].requireme
 assert.equal((await post({action:'saveType',id:selectType.id,name:selectType.name,description:'Inativo',requirements:'Novo comprovante'})).status,200);
 identity=user('alice');assert.equal((await (await get()).json()).requestTypes.some(t=>t.id===selectType.id),false);assert.equal((await post({...payload(),requirementsVersion:JSON.stringify(['Novo comprovante'])})).status,400);
 console.log('✓ Admin review, edit, deactivate and historical checklist preserved');
+const resubmit=()=>({action:'resubmit',id:doc.id,title:'Cadastro corrigido',message:'Documentos corrigidos','file:0':pdf(),'file:1':pdf()});
+identity=user('alice');assert.equal((await post(resubmit())).status,409); // approved cannot be resubmitted
+identity=user('owner');assert.equal((await post({action:'review',id:doc.id,status:'Recusado',reason:'Comprovante ilegível'})).status,200);
+const before=await (await get()).json();const refused=before.documents[0];assert.equal(refused.status,'Recusado');
+identity=user('bob');assert.equal((await post(resubmit())).status,404);
+identity=user('owner');assert.equal((await post(resubmit())).status,404); // only owner, even if admin
+identity=user('alice');const missingAgain=resubmit();delete missingAgain['file:1'];assert.equal((await post(missingAgain)).status,400);assert.equal(bucket.size,2);
+assert.equal((await post({...resubmit(),version:String(refused.version-1)})).status,409);
+// Simulate a changed request during R2 upload; conditional SQL must leave no orphan files or history.
+const originalPut=globalThis.__portalTest.env.BUCKET.put;let changed=false;
+globalThis.__portalTest.env.BUCKET.put=async(k,v)=>{await originalPut(k,v);if(!changed){changed=true;database.prepare('UPDATE documents SET version=version+1 WHERE id=?').run(doc.id)}};
+assert.equal((await post(resubmit())).status,409);assert.equal(bucket.size,2);assert.equal(database.prepare('SELECT COUNT(*) AS n FROM attachments').get().n,2);
+globalThis.__portalTest.env.BUCKET.put=originalPut;
+assert.equal((await post(resubmit())).status,200);
+const corrected=(await (await get()).json()).documents[0];
+assert.equal(corrected.id,doc.id);assert.equal(corrected.status,'Em análise');assert.equal(corrected.reason,'');assert.equal(corrected.revision,2);assert.equal(corrected.requirements.length,2);assert.equal(corrected.attachments.length,2);assert.equal(corrected.history.find(h=>h.action==='resubmit').message,'Documentos corrigidos');assert.ok(corrected.history.some(h=>h.reason==='Comprovante ilegível'));assert.equal(bucket.size,4);
+assert.equal((await get('?file='+doc.attachments[0].id)).status,200); // previous files retained
+assert.equal((await post(resubmit())).status,409); // double submit rejected
+identity=user('bob');assert.equal((await get('?file='+corrected.attachments[0].id)).status,404);assert.equal((await get('?file='+doc.attachments[0].id)).status,404);assert.equal((await (await get()).json()).documents.length,0);
+identity=user('owner');assert.equal((await post({action:'review',id:doc.id,status:'Aprovado',version:String(refused.version)})).status,409); // stale review cannot approve a new version
+assert.equal((await post({action:'review',id:doc.id,status:'Aprovado'})).status,200);
+assert.equal((await (await get()).json()).documents[0].history.at(-1).revision,2);
+identity=user('alice');
+console.log('✓ Resubmission preserves protocol and refusal, enforces ownership and protects against concurrent/stale updates');
+
 database.prepare('INSERT INTO documents(id,owner,title,category,message,filename,mime,status,reason,created,updated) VALUES(?,?,?,?,?,?,?,?,?,?,?)').run('legacy','alice','Antigo','Outros','','legacy.pdf','application/pdf','Em análise','','2026-01-01','2026-01-01');bucket.set('legacy',new Uint8Array([1,2,3]));
 assert.equal((await get('?file=legacy')).status,200);assert.equal((await (await get()).json()).documents.length,2);
 console.log('✓ Existing single-file records remain accessible');
+identity=user('owner');assert.equal((await post({action:'review',id:'legacy',status:'Recusado',reason:'Arquivo incorreto'})).status,200);
+identity=user('alice');assert.equal((await post({action:'resubmit',id:'legacy',title:'Legado corrigido','file:0':pdf()})).status,200);
+const legacy=(await (await get()).json()).documents.find(d=>d.id==='legacy');assert.equal(legacy.revision,2);assert.ok(legacy.history.some(h=>h.reason==='Arquivo incorreto'));assert.equal((await get('?file=legacy')).status,200);
+console.log('✓ Legacy requests also support revision and retain original downloads');
+
 identity=null;assert.equal((await get('?file='+doc.id)).status,401);
 database.close();rmSync(dir,{recursive:true,force:true});console.log('All integration checks passed (local SQLite and in-memory file storage).');

@@ -15,6 +15,13 @@
       "when": 1792758861215,
       "tag": "0001_futuristic_miss_america",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1792764658811,
+      "tag": "0002_eager_randall",
+      "breakpoints": true
     }
   ]
 }

@@ -10,6 +10,7 @@ Sistema web para cadastro, envio e análise de documentos, com interface em port
 - Tipos de solicitação editáveis pelo administrador, com documentos obrigatórios.
 - Vários anexos em um protocolo: PDF, JPG ou PNG, até 10 MB por arquivo e 30 MB por solicitação.
 - Aprovação e recusa com observações, filtros e download dos anexos.
+- Correção e reenvio de pedidos recusados com o mesmo protocolo, versões dos arquivos e histórico das análises.
 - Isolamento de documentos por usuário; administração definida por `ADMIN_EMAIL` no servidor.
 - Botão para preparar aviso de resultado no aplicativo de e-mail. O administrador revisa e envia; não há envio automático.
 
@@ -34,6 +35,7 @@ Na **primeira execução em um banco local vazio**, aplique as migrações em or
 ```bash
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_melodic_mikhail_rasputin.sql
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0001_futuristic_miss_america.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0002_eager_randall.sql
 pnpm dev
 ```
 
@@ -92,4 +94,22 @@ Abra **PORTS → 5173 → Abrir no navegador** e mantenha a visibilidade **Priva
 
 Nesse ambiente, **Entrar com ChatGPT** usa uma conta de teste compartilhada (`seedy@sites.test`), sem pedir senha ou conectar uma conta real. Complete **Meu cadastro** para experimentar o fluxo. Use arquivos fictícios; o isolamento de usuários reais deve ser testado no site publicado. O mock não é incluído na autenticação de produção.
 
-Se você já executou as duas migrações manualmente, não as execute novamente. Ao reiniciar o Codespace, use apenas `pnpm dev`. Não use `pnpm start` para essa simulação, pois ele serve o build sem o middleware de login de desenvolvimento.
+Não execute novamente as migrações que já foram aplicadas. Para atualizar uma instalação anterior ao recurso de reenvio, siga a seção abaixo. Ao reiniciar o Codespace, use apenas `pnpm dev`. Não use `pnpm start` para essa simulação, pois ele serve o build sem o middleware de login de desenvolvimento.
+
+## Atualizar uma instalação existente para correções e reenvios
+
+Pare o servidor com Ctrl+C. Se as migrações `0000` e `0001` já foram aplicadas, execute somente a nova `0002`, uma vez:
+
+```bash
+git pull --ff-only
+pnpm install --frozen-lockfile
+pnpm build
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0002_eager_randall.sql
+pnpm dev
+```
+
+Esse comando adiciona o histórico e os controles de versão sem apagar os pedidos ou anexos existentes. Não reaplique a migração em um banco que já recebeu essa atualização.
+
+Para testar, recuse uma solicitação com uma observação. O próprio solicitante abre os detalhes, escolhe **Corrigir e reenviar**, anexa novamente todos os documentos exigidos e confirma o envio. O status volta a **Em análise** e o protocolo permanece igual. O administrador abre o histórico para consultar decisões e baixar arquivos de versões anteriores.
+
+Pedidos anteriores à atualização preservam a última situação conhecida como ponto inicial do histórico; decisões antigas que já haviam sido sobrescritas não podem ser reconstruídas. Novas decisões e reenvios passam a ser registrados.
