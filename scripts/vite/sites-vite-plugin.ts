@@ -29,7 +29,7 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-export function sites({ mockAuth = true } = {}): Plugin {
+export function sites({ mockAuth = true, developmentOrigin = "" } = {}): Plugin {
   let root = process.cwd();
   let command: "build" | "serve" = "build";
 
@@ -41,7 +41,7 @@ export function sites({ mockAuth = true } = {}): Plugin {
     },
     configureServer(server) {
       if (!mockAuth) return;
-      const secure = Boolean(server.config.server.https);
+      const serverSecure = Boolean(server.config.server.https);
 
       server.config.logger.info(`Sites local sign-in: ${localEmail}`);
       server.middlewares.use((request, response, next) => {
@@ -53,10 +53,22 @@ export function sites({ mockAuth = true } = {}): Plugin {
 
         let authority: URL;
         let url: URL;
+        let codespaceRequest = false;
+        let secure = serverSecure;
         try {
           authority = new URL(
-            `${secure ? "https" : "http"}://${request.headers.host}`,
+            `${serverSecure ? "https" : "http"}://${request.headers.host}`,
           );
+          if (developmentOrigin) {
+            const configured = new URL(developmentOrigin);
+            const forwarded = request.headers["x-forwarded-host"];
+            codespaceRequest = authority.host === configured.host ||
+              (localHosts.has(authority.hostname) && forwarded === configured.host);
+            if (codespaceRequest) {
+              authority = configured;
+              secure = true;
+            }
+          }
           url = new URL(request.url ?? "/", authority);
         } catch {
           if (authPaths.has((request.url ?? "/").split("?")[0])) {
@@ -71,8 +83,8 @@ export function sites({ mockAuth = true } = {}): Plugin {
           .replace(/^\[|\]$/g, "")
           .toLowerCase();
         if (
-          !localHosts.has(hostname) ||
-          !localAddresses.has(request.socket.remoteAddress ?? "") ||
+          (!codespaceRequest && (!localHosts.has(hostname) ||
+          !localAddresses.has(request.socket.remoteAddress ?? ""))) ||
           url.origin !== authority.origin
         ) {
           if (authPaths.has(url.pathname)) respond(response, 403);

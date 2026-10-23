@@ -1,4 +1,5 @@
 import vinext from "vinext";
+import { codespaceOrigin } from "./scripts/codespace-origin.mjs";
 import { defineConfig } from "vite";
 import hostingConfig from "./.openai/hosting.json";
 import { readExecutionProfile } from "./scripts/execution-profile.mjs";
@@ -39,22 +40,24 @@ const localBindingConfig = {
 
 export default defineConfig(async ({ command }) => {
   configureToolEnvironment(process.cwd());
+  const developmentOrigin = command === "serve" && !managedLinux ? codespaceOrigin() : "";
 
   // Wrangler snapshots its log path while the Cloudflare plugin is imported.
   const { cloudflare } = await import("@cloudflare/vite-plugin");
 
   return {
+    define: { __DOCFLOW_DEVELOPMENT_ORIGIN__: JSON.stringify(developmentOrigin) },
     server: {
       ...(managedLinux
         ? { host: "0.0.0.0", allowedHosts: ["terminal.local"] }
-        : {}),
+        : developmentOrigin ? { host: "0.0.0.0", strictPort: true, allowedHosts: [new URL(developmentOrigin).hostname] } : {}),
       ...(isCodexSeatbeltSandbox
         ? { watch: { useFsEvents: false, usePolling: true } }
         : {}),
     },
     plugins: [
       vinext(),
-      sites({ mockAuth: !managedLinux }),
+      sites({ mockAuth: !managedLinux, developmentOrigin }),
       connectorPreview(),
       cloudflare({
         viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },

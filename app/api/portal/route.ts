@@ -1,6 +1,8 @@
 import {env} from 'cloudflare:workers';
 import {getChatGPTUser} from '../../chatgpt-auth';
 import {mergeRequestTypes,validateType,validateFiles,type RequestType} from '../../../lib/request-types';
+import {isAllowedOrigin} from '../../../lib/request-origin';
+declare const __DOCFLOW_DEVELOPMENT_ORIGIN__:string;
 const db=()=>env.DB!;
 async function context(){
  const u=await getChatGPTUser();if(!u)throw new Error('Entre na sua conta para continuar.');
@@ -28,7 +30,7 @@ export async function GET(req:Request){try{
  return Response.json({user:u,admin,profile,documents,requestTypes},{headers:{'Cache-Control':'no-store'}});
 }catch(e){return Response.json({error:(e as Error).message},{status:401})}}
 export async function POST(req:Request){try{
- if(req.headers.get('origin')!==new URL(req.url).origin)return Response.json({error:'Origem inválida'},{status:403});
+ if(!isAllowedOrigin(req,typeof __DOCFLOW_DEVELOPMENT_ORIGIN__==='string'?__DOCFLOW_DEVELOPMENT_ORIGIN__:''))return Response.json({error:'Origem inválida'},{status:403});
  const {u,admin}=await context();const form=await req.formData();const action=form.get('action');
  if(action==='profile'){
   const name=String(form.get('name')||'').trim();if(name.length<3||name.length>120)throw new Error('Informe seu nome completo.');

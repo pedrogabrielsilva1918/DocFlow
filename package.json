@@ -13,7 +13,7 @@
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
     "typecheck": "tsc --noEmit",
-    "test": "node scripts/test-requests.mjs && node scripts/test-email.mjs",
+    "test": "node scripts/test-requests.mjs && node scripts/test-email.mjs && node scripts/test-codespaces.mjs",
     "test:requests": "node scripts/test-requests.mjs",
     "test:email": "node scripts/test-email.mjs"
   },

@@ -37,7 +37,7 @@ node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1
 pnpm dev
 ```
 
-Abra `http://localhost:5173`. Se aparecer o login, clique em **Entrar com ChatGPT**: o ambiente local usa a identidade de teste `seedy@sites.test`. O arquivo `.dev.vars.example` usa esse mesmo e-mail para permitir testar a administração. Essa simulação funciona apenas em desenvolvimento em loopback e não é a autenticação de produção.
+Abra `http://localhost:5173`. Se aparecer o login, clique em **Entrar com ChatGPT**: o ambiente local usa a identidade de teste `seedy@sites.test`. O arquivo `.dev.vars.example` usa esse mesmo e-mail para permitir testar a administração. Essa simulação funciona em desenvolvimento em loopback e no endereço exato do Codespace configurado; não é a autenticação de produção.
 
 Não reaplique os arquivos SQL sobre um banco já inicializado. Os dados locais ficam em `.wrangler/`, separados dos dados publicados. Novas mudanças de schema devem gerar uma nova migração com `pnpm db:generate`.
 
@@ -77,3 +77,19 @@ O GitHub guarda o código. Um push neste repositório não publica automaticamen
 | `scripts/test-*.mjs` | Testes locais |
 
 As configurações salvas, os perfis e os arquivos enviados estão no banco e no armazenamento da hospedagem. Não fazem parte deste repositório.
+
+## GitHub Codespaces
+
+No terminal do Codespaces, após instalar as dependências, configurar `.dev.vars` e inicializar o banco conforme os passos acima:
+
+```bash
+git pull --ff-only
+pnpm install --frozen-lockfile
+pnpm dev
+```
+
+Abra **PORTS → 5173 → Abrir no navegador** e mantenha a visibilidade **Private**. O servidor reconhece o endereço do Codespace a partir de `CODESPACE_NAME` e `GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN`, aceita apenas esse host e abre a interface na rede do contêiner automaticamente.
+
+Nesse ambiente, **Entrar com ChatGPT** usa uma conta de teste compartilhada (`seedy@sites.test`), sem pedir senha ou conectar uma conta real. Complete **Meu cadastro** para experimentar o fluxo. Use arquivos fictícios; o isolamento de usuários reais deve ser testado no site publicado. O mock não é incluído na autenticação de produção.
+
+Se você já executou as duas migrações manualmente, não as execute novamente. Ao reiniciar o Codespace, use apenas `pnpm dev`. Não use `pnpm start` para essa simulação, pois ele serve o build sem o middleware de login de desenvolvimento.

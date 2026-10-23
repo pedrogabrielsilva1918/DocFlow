@@ -11,8 +11,9 @@ function statement(sql,args){return {async first(){return database.prepare(sql).
 const bucket=new Map();let identity=null;
 globalThis.__portalTest={env:{DB:db,ADMIN_EMAIL:'owner@example.test',BUCKET:{async put(k,v){bucket.set(k,v)},async get(k){return bucket.has(k)?{body:bucket.get(k)}:null},async delete(k){bucket.delete(k)}}},getUser:async()=>identity};
 const compile=s=>ts.transpileModule(s,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
+writeFileSync(dir+'/request-origin.mjs',compile(readFileSync('lib/request-origin.ts','utf8')));
 writeFileSync(dir+'/request-types.mjs',compile(readFileSync('lib/request-types.ts','utf8')));
-let source=readFileSync('app/api/portal/route.ts','utf8').replace("import {env} from 'cloudflare:workers';","const env=globalThis.__portalTest.env;").replace("import {getChatGPTUser} from '../../chatgpt-auth';","const getChatGPTUser=globalThis.__portalTest.getUser;").replace("'../../../lib/request-types'","'./request-types.mjs'");
+let source=readFileSync('app/api/portal/route.ts','utf8').replace("import {env} from 'cloudflare:workers';","const env=globalThis.__portalTest.env;").replace("import {getChatGPTUser} from '../../chatgpt-auth';","const getChatGPTUser=globalThis.__portalTest.getUser;").replace("'../../../lib/request-types'","'./request-types.mjs'").replace("'../../../lib/request-origin'","'./request-origin.mjs'");
 writeFileSync(dir+'/route.mjs',compile(source));
 const {GET,POST}=await import(pathToFileURL(process.cwd()+'/'+dir+'/route.mjs'));
 const {DEFAULT_TYPES,validateType,mergeRequestTypes}=await import(pathToFileURL(process.cwd()+'/'+dir+'/request-types.mjs'));
