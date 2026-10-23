@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import ts from 'typescript';
+const code=ts.transpileModule(readFileSync(new URL('../lib/email-notice.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
+const {emailNotice}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
+const request={id:'abcdef12-1234',title:'Serviço & revisão',category:'Solicitação de serviço',name:'João',email:'joao+teste@example.com',status:'Recusado',reason:'Anexar nota fiscal.\nAtenção: valor & data.'};
+const url=new URL(emailNotice(request));
+assert.equal(decodeURIComponent(url.pathname),request.email);
+assert.equal(url.searchParams.get('subject'),'DocFlow | Solicitação #ABCDEF12 recusada');
+assert.ok(url.searchParams.get('body').includes(request.reason));
+assert.ok(url.searchParams.get('body').includes('Olá, João!'));
+assert.equal(emailNotice({...request,status:'Em análise'}),null);
+assert.equal(emailNotice({...request,email:'foo@example.com\r\nBcc:another@example.com'}),null);
+assert.equal(emailNotice({...request,email:null}),null);
+assert.ok(new URL(emailNotice({...request,status:'Aprovado',reason:''})).searchParams.get('body').includes('foi aprovada'));
+console.log('✓ Email notice: recipient, protocol, saved result, accents, observations and invalid addresses');

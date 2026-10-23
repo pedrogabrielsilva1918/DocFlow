@@ -1,0 +1,5 @@
+import {sqliteTable,text} from 'drizzle-orm/sqlite-core';
+export const profiles=sqliteTable('profiles',{id:text('id').primaryKey(),name:text('name').notNull(),email:text('email').notNull(),phone:text('phone').notNull().default('')});
+export const settings=sqliteTable('settings',{key:text('key').primaryKey(),value:text('value').notNull()});
+export const documents=sqliteTable('documents',{id:text('id').primaryKey(),owner:text('owner').notNull(),title:text('title').notNull(),category:text('category').notNull(),message:text('message').notNull(),filename:text('filename').notNull(),mime:text('mime').notNull(),status:text('status').notNull().default('Em análise'),reason:text('reason').notNull().default(''),created:text('created').notNull(),updated:text('updated').notNull(),requirements:text('requirements').notNull().default('[]')});
+export const attachments=sqliteTable('attachments',{id:text('id').primaryKey(),documentId:text('document_id').notNull(),label:text('label').notNull(),filename:text('filename').notNull(),mime:text('mime').notNull()});

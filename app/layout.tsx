@@ -1,0 +1,1 @@
+import './globals.css'; export const metadata={title:'DocFlow | Portal de documentos',description:'Envie, acompanhe e gerencie seus documentos em um só lugar.'};export default function Layout({children}:{children:React.ReactNode}){return <html lang="pt-BR"><body>{children}</body></html>}
