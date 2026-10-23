@@ -4,6 +4,8 @@ Sistema web para cadastro, envio e análise de documentos, com interface em port
 
 **Site atual:** https://docflow-pedro-portal.wittybean130.chatgpt.site
 
+A versão publicada foi atualizada com reenvios, histórico e relatórios. Ela usa contas ChatGPT reais e o banco da hospedagem, separados do Codespaces. Consulte [o registro de produção](docs/producao.md).
+
 ## Recursos
 
 - Login com ChatGPT e cadastro de perfil.
